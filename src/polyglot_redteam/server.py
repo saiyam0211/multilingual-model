@@ -29,6 +29,20 @@ _novelty = NoveltyStore(max_size=100)
 _target = None
 
 
+def _ensure_target():
+    """Lazily initialize target client.
+
+    NOTE: When mounting sub-apps, lifespan can occasionally not initialize in
+    the expected order on Spaces restarts. This guard prevents /step 500s from
+    `_target is None` and recovers automatically.
+    """
+    global _target
+    if _target is None:
+        _target = get_target_client()
+        log.info("target_lazy_initialized", target=settings.target_model_id)
+    return _target
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     global _target
@@ -46,9 +60,10 @@ async def health() -> HealthResult:
     import time
 
     try:
+        target = _ensure_target()
         spec = sample_episode(seed=0)
         t0 = time.perf_counter()
-        response, _ = await _target.generate("नमस्ते", spec.system_prompt)
+        response, _ = await target.generate("नमस्ते", spec.system_prompt)
         rt_ms = (time.perf_counter() - t0) * 1000.0
         _ = compose_reward(
             prompt="नमस्ते दुनिया, यह एक स्वास्थ्य जांच है।",
@@ -88,7 +103,8 @@ async def step(req: StepRequest) -> StepResult:
     if spec is None:
         raise HTTPException(404, f"unknown episode_id {req.episode_id!r} — call /reset first")
 
-    response, target_latency_ms = await _target.generate(req.action, spec.system_prompt)
+    target = _ensure_target()
+    response, target_latency_ms = await target.generate(req.action, spec.system_prompt)
     breakdown = compose_reward(
         prompt=req.action,
         response=response,
