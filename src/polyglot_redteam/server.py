@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 import gradio as gr
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
 
 from .config import settings
 from .episode import EpisodeStore, sample_episode
@@ -40,13 +41,14 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="polyglot-redteam", version="0.1.0", lifespan=lifespan)
 
-gradio_app = create_demo()
-app = gr.mount_gradio_app(app, gradio_app, path="/", theme=THEME, css=CSS)
+
+@app.get("/")
+async def root():
+    return RedirectResponse(url="/ui")
 
 
 @app.get("/health", response_model=HealthResult)
 async def health() -> HealthResult:
-    """Synthetic round-trip — actually exercises target + reward composer."""
     import time
 
     try:
@@ -104,7 +106,7 @@ async def step(req: StepRequest) -> StepResult:
     return StepResult(
         observation=response,
         reward=breakdown.total,
-        done=True,  # single-turn for v1
+        done=True,
         info={
             "gate_reason": breakdown.gate_reason,
             "reward_components": breakdown.components,
@@ -117,9 +119,13 @@ async def step(req: StepRequest) -> StepResult:
 
 @app.get("/state")
 async def state() -> dict:
-    """Stateless env from the policy's POV. Episodes are addressable by id."""
     return {
         "episodes_in_store": len(_episodes._store),
         "novelty_corpus_size": len(_novelty._store),
         "mock_gpu": settings.mock_gpu,
     }
+
+
+# Mount Gradio AFTER all API routes so they take priority
+gradio_app = create_demo()
+app = gr.mount_gradio_app(app, gradio_app, path="/ui", theme=THEME, css=CSS)
