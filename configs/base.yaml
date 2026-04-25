@@ -17,10 +17,9 @@ reward:
   reward_floor: -0.2
 
 target:
-  provider: hf-inference
-  # DEV target — free serverless. Swap to Llama-3.1-8B for final eval.
-  model_id: Qwen/Qwen2.5-7B-Instruct
-  final_eval_model_id: meta-llama/Llama-3.1-8B-Instruct
+  provider: hf-inference  # InferenceClient(provider='auto')
+  model_id: meta-llama/Llama-3.1-8B-Instruct
+  fallback_model_id: Qwen/Qwen2.5-7B-Instruct
   max_tokens: 512
   temperature: 0.7
   timeout_s: 30

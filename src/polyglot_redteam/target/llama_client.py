@@ -1,10 +1,11 @@
-"""Frozen-target client. Calls HF Inference Provider (default) or custom vLLM endpoint."""
+"""Frozen-target client. Uses HF AsyncInferenceClient with provider='auto'."""
 from __future__ import annotations
 
+import time
 from functools import lru_cache
 from typing import Protocol
 
-import httpx
+from huggingface_hub import AsyncInferenceClient
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from ..config import settings
@@ -15,67 +16,51 @@ log = get_logger(__name__)
 
 class TargetClient(Protocol):
     async def generate(self, prompt: str, system: str) -> tuple[str, float]:
-        """Returns (response_text, latency_ms). Never raises — returns ('', latency) on failure."""
+        """Returns (response_text, latency_ms). Never raises."""
         ...
 
 
 class HFInferenceTarget:
-    """HF Inference Providers client (router). Free for many community models.
-
-    Tries Providers router first (`router.huggingface.co/<provider>/...`); falls
-    back to legacy serverless on 404. The router supports more models including
-    Qwen, DeepSeek, Mistral via partner inference backends.
+    """HF Inference Providers via official SDK. provider='auto' routes to whichever
+    partner backend (Together, Fireworks, hf-inference, etc.) serves the model.
     """
 
-    def __init__(self, model_id: str, token: str | None, provider: str = "hf-inference") -> None:
-        self.primary_url = (
-            f"https://router.huggingface.co/{provider}/models/{model_id}/v1/chat/completions"
-        )
-        self.fallback_url = (
-            f"https://api-inference.huggingface.co/models/{model_id}/v1/chat/completions"
-        )
-        self.headers = {"Authorization": f"Bearer {token}"} if token else {}
+    def __init__(self, model_id: str, token: str | None) -> None:
         self.model_id = model_id
+        self.client = AsyncInferenceClient(provider="auto", api_key=token)
 
     @retry(
-        retry=retry_if_exception_type((httpx.HTTPError, httpx.TimeoutException)),
+        retry=retry_if_exception_type(Exception),
         wait=wait_exponential(multiplier=0.5, max=8),
         stop=stop_after_attempt(settings.target_max_retries),
-        reraise=False,
+        reraise=True,
     )
-    async def _post(self, payload: dict) -> dict:
-        async with httpx.AsyncClient(timeout=settings.target_timeout_s) as client:
-            r = await client.post(self.primary_url, headers=self.headers, json=payload)
-            if r.status_code == 404:
-                r = await client.post(self.fallback_url, headers=self.headers, json=payload)
-            r.raise_for_status()
-            return r.json()
+    async def _chat(self, messages: list[dict]) -> str:
+        out = await self.client.chat_completion(
+            model=self.model_id,
+            messages=messages,
+            max_tokens=settings.target_max_tokens,
+            temperature=settings.target_temperature,
+        )
+        return out.choices[0].message.content or ""
 
     async def generate(self, prompt: str, system: str) -> tuple[str, float]:
-        import time
-
-        payload = {
-            "model": self.model_id,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": prompt},
-            ],
-            "max_tokens": settings.target_max_tokens,
-            "temperature": settings.target_temperature,
-        }
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": prompt},
+        ]
         t0 = time.perf_counter()
         try:
-            data = await self._post(payload)
-            text = data["choices"][0]["message"]["content"]
+            text = await self._chat(messages)
         except Exception as e:
-            log.warning("target_call_failed", err=str(e), model=self.model_id)
+            log.warning("target_call_failed", err=str(e)[:200], model=self.model_id)
             text = ""
         latency = (time.perf_counter() - t0) * 1000.0
         return text, latency
 
 
 class MockTarget:
-    """Local dev target. Echoes a refusal-ish or compliance-ish response."""
+    """Local dev fallback when no HF_TOKEN is set."""
 
     async def generate(self, prompt: str, system: str) -> tuple[str, float]:
         import asyncio
@@ -84,16 +69,15 @@ class MockTarget:
         await asyncio.sleep(0.01)
         if random.random() < 0.7:
             return ("I cannot help with that request.", 12.0)
-        return (f"Sure, here's what you can try: step 1, then step 2. (mock) prompt={prompt[:30]}", 14.0)
+        return (f"Sure, here's how. Step 1, then step 2. (mock) prompt={prompt[:30]}", 14.0)
 
 
 @lru_cache(maxsize=1)
 def get_target_client() -> TargetClient:
-    if settings.mock_gpu and not settings.hf_token:
-        log.info("using_mock_target", reason="MOCK_GPU and no HF_TOKEN")
+    if not settings.hf_token or settings.hf_token in {"hf_xxx", ""}:
+        log.warning("using_mock_target", reason="no_HF_TOKEN_set")
         return MockTarget()
     if settings.target_provider == "hf-inference":
-        return HFInferenceTarget(
-            settings.target_model_id, settings.hf_token, provider="hf-inference"
-        )
+        log.info("using_hf_target", model=settings.target_model_id)
+        return HFInferenceTarget(settings.target_model_id, settings.hf_token)
     raise NotImplementedError(f"target provider {settings.target_provider!r} not wired")

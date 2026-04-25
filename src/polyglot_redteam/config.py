@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # target
     target_provider: str = "hf-inference"
-    target_model_id: str = "Qwen/Qwen2.5-7B-Instruct"
+    target_model_id: str = "meta-llama/Llama-3.1-8B-Instruct"
     target_base_url: str | None = None
     target_max_tokens: int = 512
     target_temperature: float = 0.7
