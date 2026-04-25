@@ -26,7 +26,13 @@ job = api.run_job(
     ],
     flavor='${FLAVOR}',
     secrets={'HF_TOKEN': token},
-    env={'HF_HOME': '/tmp/hf_cache'},
+    env={
+        'HF_HOME': '/tmp/hf_cache',
+        # 6 langs × 4 cats × 6 = 144 rows; ~4h wall time with API + gen
+        'NUM_PER_CELL': '6',
+    },
+    # Default HF Job limit is short; full run needs several hours
+    timeout='4h',
     token=token,
 )
 print(f'Job ID: {job.id}')
