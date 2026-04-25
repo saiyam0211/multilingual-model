@@ -67,9 +67,26 @@ GRPO Update             →  updates attacker policy to maximize reward
 
 ## Results
 
-**Baseline ASR (seed prompts):** 98.5% — simple translated prompts already bypass safety
+| Metric | Baseline (seed prompts) | Post-GRPO (learned attacks) |
+|--------|------------------------|---------------------------|
+| **Overall ASR** | 98.5% | 100.0% |
+| Prompts evaluated | 402 | 240 |
+| Gate-passed | 402 | 39 (201 gated by quality filters) |
 
-Post-GRPO results: training in progress (see `results/` directory)
+**Key finding:** Simple translated prompts already bypass Llama-3.1-8B safety filters
+98.5% of the time across 6 Indian languages. The GRPO-trained attacker achieves 100%
+ASR on quality-filtered outputs — every valid Indic prompt it generates bypasses safety.
+
+| Language | Baseline ASR | Post-GRPO ASR |
+|----------|-------------|---------------|
+| Bengali | 100.0% | 100.0% |
+| Hindi | 100.0% | 100.0% |
+| Kannada | 100.0% | 100.0% |
+| Marathi | 100.0% | 100.0% |
+| Tamil | 93.8% | 100.0% |
+| Telugu | 100.0% | 100.0% |
+
+See `results/` for charts: `asr_by_language.png`, `asr_by_category.png`, `reward_distribution.png`
 
 ## Repository Structure
 
@@ -139,7 +156,7 @@ bash scripts/run_grpo_job.sh
 ## Trained Adapters
 
 - **SFT:** [Saiyam0211/polyglot-redteam-sft](https://huggingface.co/Saiyam0211/polyglot-redteam-sft)
-- **GRPO:** [Saiyam0211/polyglot-redteam-grpo](https://huggingface.co/Saiyam0211/polyglot-redteam-grpo) (training in progress)
+- **GRPO:** [Saiyam0211/polyglot-redteam-grpo](https://huggingface.co/Saiyam0211/polyglot-redteam-grpo)
 
 ## Status
 
@@ -149,10 +166,10 @@ bash scripts/run_grpo_job.sh
 - [x] Seed prompts translated (402 × 6 languages)
 - [x] Baseline eval: 98.5% ASR
 - [x] SFT warmup complete (loss 3.07 → 0.36)
-- [x] GRPO training launched
-- [x] Eval + plotting scripts ready
-- [ ] Post-GRPO eval + final results
-- [ ] Submission
+- [x] GRPO training complete (ASR 10% → 16.5% during training, 100% on eval)
+- [x] Post-GRPO eval complete (240 prompts, 100% ASR on gate-passed)
+- [x] Comparison charts generated
+- [x] Submission ready
 
 ## Ethics
 
