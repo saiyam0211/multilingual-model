@@ -12,3 +12,7 @@ data/lid.176.bin
 .ruff_cache/
 checkpoints/
 logs/
+# Hackathon reference PDF — too large for git, kept locally / in /tmp backup
+OpenEnv Hackathon Opening Ceremony _ 25th Apr.pdf
+*.pdf
+
