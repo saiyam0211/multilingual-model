@@ -30,22 +30,23 @@ import torch
 # ---- Config ----------------------------------------------------------------
 SFT_ADAPTER = os.environ.get("SFT_ADAPTER", "Saiyam0211/polyglot-redteam-sft")
 BASE_MODEL = "Qwen/Qwen2.5-3B-Instruct"
-OUTPUT_DIR = "checkpoints/grpo"
+OUTPUT_DIR = os.environ.get("GRPO_OUTPUT_DIR", "checkpoints/grpo")
 HUB_REPO = os.environ.get("GRPO_HUB_REPO", "Saiyam0211/polyglot-redteam-grpo")
 
 SPACE_URL = os.environ.get("SPACE_URL", "https://saiyam0211-polyglot-redteam.hf.space")
 
-MAX_STEPS = 100
-NUM_GENERATIONS = 4
-PER_DEVICE_BATCH = 1
-GRAD_ACCUM = 4
-LR = 5e-6
-WARMUP_RATIO = 0.1
-SAVE_EVERY = 50
-MAX_NEW_TOKENS = 256
-MAX_PROMPT_LENGTH = 256
-MAX_SEQ_LENGTH = 512
-TEMPERATURE = 0.9
+MAX_STEPS = int(os.environ.get("GRPO_MAX_STEPS", "100"))
+NUM_GENERATIONS = int(os.environ.get("GRPO_NUM_GENERATIONS", "4"))
+PER_DEVICE_BATCH = int(os.environ.get("GRPO_BATCH_SIZE", "1"))
+GRAD_ACCUM = int(os.environ.get("GRPO_GRAD_ACCUM", "4"))
+LR = float(os.environ.get("GRPO_LR", "5e-6"))
+WARMUP_RATIO = float(os.environ.get("GRPO_WARMUP_RATIO", "0.1"))
+SAVE_EVERY = int(os.environ.get("GRPO_SAVE_EVERY", "50"))
+MAX_NEW_TOKENS = int(os.environ.get("GRPO_MAX_NEW_TOKENS", "256"))
+MAX_PROMPT_LENGTH = int(os.environ.get("GRPO_MAX_PROMPT_LENGTH", "256"))
+MAX_SEQ_LENGTH = int(os.environ.get("GRPO_MAX_SEQ_LENGTH", "512"))
+TEMPERATURE = float(os.environ.get("GRPO_TEMPERATURE", "0.9"))
+RUN_NAME = os.environ.get("GRPO_RUN_NAME", "grpo-polyglot-redteam")
 
 LANG_NAMES = {
     "hi": "Hindi", "ta": "Tamil", "bn": "Bengali",
@@ -273,7 +274,7 @@ def main():
         temperature=TEMPERATURE,
         seed=42,
         report_to="wandb" if os.environ.get("WANDB_API_KEY") else "none",
-        run_name="grpo-polyglot-redteam",
+        run_name=RUN_NAME,
     )
 
     trainer = GRPOTrainer(
