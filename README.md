@@ -59,11 +59,16 @@ target via HF Inference) or set `MOCK_GPU=0` on a GPU box for full reward.
 - [`DECISIONS.md`](DECISIONS.md) — pre-decided pivot answers
 - [`docs/ETHICS.md`](docs/ETHICS.md) — what we publish and what we don't
 
+## Live env
+- Space: https://huggingface.co/spaces/Saiyam0211/polyglot-redteam
+- Endpoint: `https://saiyam0211-polyglot-redteam.hf.space`
+- Health: `curl https://saiyam0211-polyglot-redteam.hf.space/health`
+
 ## Status
-- [x] Repo scaffold + reward components
-- [ ] Adversarial probes pass (DP1)
-- [ ] HF Space deployment
-- [ ] Baseline eval (DP2)
-- [ ] SFT warmup (DP3)
-- [ ] GRPO training (DP4)
+- [x] Repo scaffold + reward components (B2-B4)
+- [x] Adversarial probes pass — 30/30 (DP1)
+- [x] HF Space deployment (B5)
+- [ ] Baseline eval against Llama-3.1-8B (DP2)
+- [ ] SFT warmup on translated AdvBench (DP3)
+- [ ] GRPO main run (DP4)
 - [ ] Final eval + plots + submission (DP5)
