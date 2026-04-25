@@ -23,6 +23,8 @@ dependencies = [
   "structlog",
   "python-dotenv",
   "openenv-core",
+  "gradio>=4.0",
+  "deep-translator",
 ]
 
 [project.optional-dependencies]

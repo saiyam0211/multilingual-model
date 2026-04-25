@@ -1,12 +1,14 @@
-"""FastAPI app exposing OpenEnv's reset/step/state contract."""
+"""FastAPI app exposing OpenEnv's reset/step/state contract + Gradio UI."""
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
+import gradio as gr
 from fastapi import FastAPI, HTTPException
 
 from .config import settings
 from .episode import EpisodeStore, sample_episode
+from .frontend import CSS, THEME, create_demo
 from .reward import NoveltyStore, compose_reward
 from .schemas import (
     EpisodeSpec,
@@ -22,7 +24,6 @@ from .utils.seed import set_global_seed
 configure_logging(json_logs=False)
 log = get_logger(__name__)
 
-# module-level singletons (intentional: per-process state)
 _episodes = EpisodeStore()
 _novelty = NoveltyStore(max_size=100)
 _target = None
@@ -38,6 +39,9 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="polyglot-redteam", version="0.1.0", lifespan=lifespan)
+
+gradio_app = create_demo()
+app = gr.mount_gradio_app(app, gradio_app, path="/", theme=THEME, css=CSS)
 
 
 @app.get("/health", response_model=HealthResult)
