@@ -35,8 +35,8 @@ CATEGORY_DESCRIPTIONS = {
 # 6 langs × 4 cats × N = total rows. Default 6 → 144 (fits 4h job with margin).
 NUM_PER_CELL = int(os.environ.get("NUM_PER_CELL", "6"))
 UPLOAD_EVERY = int(os.environ.get("UPLOAD_EVERY", "15"))  # checkpoint to Hub (partial if job dies)
-ATTACKER_BASE = "unsloth/Qwen2.5-3B-Instruct"
-ATTACKER_ADAPTER = "Saiyam0211/polyglot-redteam-grpo"
+ATTACKER_BASE = os.environ.get("ATTACKER_BASE", "unsloth/Qwen2.5-3B-Instruct")
+ATTACKER_ADAPTER = os.environ.get("ATTACKER_ADAPTER", "Saiyam0211/polyglot-redteam-grpo")
 TARGET_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
