@@ -1,9 +1,14 @@
+# HF Spaces Dockerfile — runs the OpenEnv FastAPI server on free CPU hardware.
+# Llama-Guard is mocked in-Space (MOCK_GPU=1); real harm classification happens
+# during training on HF Jobs, not here.
 FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     HF_HOME=/data/hf_cache \
-    TRANSFORMERS_CACHE=/data/hf_cache
+    HF_HUB_CACHE=/data/hf_cache \
+    SENTENCE_TRANSFORMERS_HOME=/data/hf_cache \
+    PORT=7860
 
 WORKDIR /app
 
@@ -13,13 +18,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY pyproject.toml ./
 COPY src ./src
-RUN pip install -U pip && pip install -e .
+RUN pip install -U pip && pip install --no-cache-dir -e . \
+ # CPU-only torch keeps the image small and the cold-start fast.
+ && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 
-# fasttext lid model (124MB) — bake into image so cold-start is fast
+# Bake fasttext lid model (124MB) into the image — cold-start friendly.
 RUN mkdir -p /app/data && \
     curl -L -o /app/data/lid.176.bin \
     https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin
 
-EXPOSE 8000
+# HF Spaces requires the app to listen on $PORT (default 7860).
+EXPOSE 7860
 
-CMD ["uvicorn", "polyglot_redteam.server:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn polyglot_redteam.server:app --host 0.0.0.0 --port ${PORT:-7860}"]

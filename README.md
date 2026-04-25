@@ -1,3 +1,22 @@
+---
+title: Polyglot Red-Teamer
+emoji: "🛡"
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+license: apache-2.0
+short_description: OpenEnv multilingual safety auditing for Indic LLMs
+tags:
+  - openenv
+  - safety
+  - red-teaming
+  - multilingual
+  - rlvr
+  - grpo
+---
+
 # Polyglot Red-Teamer
 
 > An OpenEnv environment for systematic safety auditing of LLMs in Indian
