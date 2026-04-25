@@ -173,10 +173,16 @@ def main():
     # ---- Push to Hub ----------------------------------------------------
     token = os.environ.get("HF_TOKEN")
     if token:
-        print(f"→ pushing to {HUB_REPO}")
-        model.push_to_hub(HUB_REPO, token=token, private=True)
-        tokenizer.push_to_hub(HUB_REPO, token=token, private=True)
-        print(f"  ✓ pushed to https://huggingface.co/{HUB_REPO}")
+        try:
+            from huggingface_hub import login
+            login(token=token, add_to_git_credential=False)
+            print(f"→ pushing to {HUB_REPO}")
+            model.push_to_hub(HUB_REPO, token=token, private=True)
+            tokenizer.push_to_hub(HUB_REPO, token=token, private=True)
+            print(f"  ✓ pushed to https://huggingface.co/{HUB_REPO}")
+        except Exception as e:
+            print(f"  ⚠ push_to_hub failed: {e}")
+            print("  (model saved locally — can push manually)")
     else:
         print("  (no HF_TOKEN — skipping hub push)")
 
