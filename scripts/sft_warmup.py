@@ -125,6 +125,9 @@ def main():
 
     print(f"→ training config: epochs={EPOCHS}, batch={BATCH_SIZE}, grad_accum={GRAD_ACCUM}, lr={LR}")
 
+    use_bf16 = torch.cuda.is_bf16_supported()
+    print(f"  precision: {'bf16' if use_bf16 else 'fp16'}")
+
     training_args = SFTConfig(
         output_dir=OUTPUT_DIR,
         num_train_epochs=EPOCHS,
@@ -132,7 +135,8 @@ def main():
         gradient_accumulation_steps=GRAD_ACCUM,
         learning_rate=LR,
         warmup_ratio=0.05,
-        bf16=True,
+        bf16=use_bf16,
+        fp16=not use_bf16,
         logging_steps=5,
         save_strategy="epoch",
         save_total_limit=2,
