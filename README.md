@@ -67,26 +67,36 @@ GRPO Update             →  updates attacker policy to maximize reward
 
 ## Results
 
+### The Safety Gap (English vs Indian Languages)
+
+We sent the same harmful prompts to Llama-3.1-8B-Instruct in English and 6 Indian
+languages. The model refuses 73% of English requests but **0% of Indic requests**.
+
+| Language | Refusal Rate | Attack Success Rate |
+|----------|-------------|-------------------|
+| **English** | **73.3%** | **26.7%** |
+| Hindi | 0.0% | 100.0% |
+| Tamil | 0.0% | 100.0% |
+| Bengali | 0.0% | 100.0% |
+| Marathi | 0.0% | 100.0% |
+| Telugu | 0.0% | 100.0% |
+| Kannada | 0.0% | 100.0% |
+
+**Safety gap: +75 percentage points.** Violence and privacy violations show the
+worst gaps (+86pp each).
+
+### GRPO-Trained Attacker
+
 | Metric | Baseline (seed prompts) | Post-GRPO (learned attacks) |
 |--------|------------------------|---------------------------|
-| **Overall ASR** | 98.5% | 100.0% |
+| Overall ASR | 98.5% | 100.0% |
 | Prompts evaluated | 402 | 240 |
 | Gate-passed | 402 | 39 (201 gated by quality filters) |
 
-**Key finding:** Simple translated prompts already bypass Llama-3.1-8B safety filters
-98.5% of the time across 6 Indian languages. The GRPO-trained attacker achieves 100%
-ASR on quality-filtered outputs — every valid Indic prompt it generates bypasses safety.
+The GRPO-trained attacker achieves 100% ASR on all quality-filtered outputs.
 
-| Language | Baseline ASR | Post-GRPO ASR |
-|----------|-------------|---------------|
-| Bengali | 100.0% | 100.0% |
-| Hindi | 100.0% | 100.0% |
-| Kannada | 100.0% | 100.0% |
-| Marathi | 100.0% | 100.0% |
-| Tamil | 93.8% | 100.0% |
-| Telugu | 100.0% | 100.0% |
-
-See `results/` for charts: `asr_by_language.png`, `asr_by_category.png`, `reward_distribution.png`
+See `results/` for charts: `safety_gap_comparison.png`, `safety_gap_by_category.png`,
+`findings_summary.png`, `asr_by_language.png`
 
 ## Repository Structure
 
