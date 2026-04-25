@@ -86,8 +86,9 @@ def main():
         sys.exit(1)
 
     gpu_name = torch.cuda.get_device_name(0)
-    use_bf16 = torch.cuda.is_bf16_supported()
-    print(f"→ GPU: {gpu_name}  bf16={use_bf16}")
+    major, minor = torch.cuda.get_device_capability(0)
+    use_bf16 = major >= 8  # Ampere+ (A100, L4, etc.) — T4 is 7.5
+    print(f"→ GPU: {gpu_name}  compute={major}.{minor}  bf16={use_bf16}")
 
     # ---- Load model via Unsloth -----------------------------------------
     from unsloth import FastLanguageModel
