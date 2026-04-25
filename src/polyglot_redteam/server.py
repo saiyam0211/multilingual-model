@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 import gradio as gr
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from .config import settings
 from .episode import EpisodeStore, sample_episode
@@ -44,7 +44,33 @@ app = FastAPI(title="polyglot-redteam", version="0.1.0", lifespan=lifespan)
 
 @app.get("/")
 async def root():
-    return RedirectResponse(url="/ui")
+    return HTMLResponse(
+        """
+        <!doctype html>
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <meta http-equiv="refresh" content="0; url=/ui/" />
+            <title>Polyglot Red-Teamer</title>
+            <style>
+              body { font-family: Inter, system-ui, -apple-system, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; display: grid; place-items: center; min-height: 100vh; }
+              .card { background: #111827; border: 1px solid #334155; border-radius: 12px; padding: 20px 24px; max-width: 560px; }
+              a { color: #a5b4fc; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <h2 style="margin-top:0">Loading Polyglot Red-Teamer UI…</h2>
+              <p>If the app does not open automatically, click:
+                <a href="/ui/">Open UI</a>
+              </p>
+            </div>
+            <script>window.location.replace("/ui/");</script>
+          </body>
+        </html>
+        """
+    )
 
 
 @app.get("/health", response_model=HealthResult)
