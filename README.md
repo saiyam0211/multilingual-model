@@ -19,56 +19,147 @@ tags:
 
 # Polyglot Red-Teamer
 
-> An OpenEnv environment for systematic safety auditing of LLMs in Indian
-> languages (Hindi, Tamil, Bengali, Marathi, Telugu, Kannada). Trains a
-> Qwen2.5-3B attacker via GRPO to discover prompt patterns that bypass safety
-> on a frozen Llama-3.1-8B-Instruct target.
+> Automated multilingual safety auditing for LLMs in Indian languages.
+> Trains a Qwen2.5-3B attacker via GRPO to discover prompt patterns that
+> bypass safety filters on a frozen Llama-3.1-8B-Instruct target.
 
-> ⚠️ **Work in progress.** Hackathon submission — Apr 25–26, 2026.
+**OpenEnv Hackathon — Apr 25-26, 2026**
 
-## The problem
-Most LLM safety training is in English. Llama-3.1 refuses to give tax-fraud
-instructions in English; in Tamil, it sometimes answers. India has 700M+
-internet users who prefer their native language over English. We built the
-first automated tool to find these gaps.
+## The Problem
 
-## What's here
-- `src/polyglot_redteam/` — OpenEnv FastAPI server, reward composer, target client
-- `notebooks/` — calibration, baseline eval, GRPO training
-- `configs/base.yaml` — single source of truth for all hyperparameters
-- `tests/` — adversarial probes against the reward function (run before training)
-- `docs/ETHICS.md` — what we publish, what we don't, why
+Most LLM safety training is English-centric. Models like Llama-3.1 refuse
+harmful English requests, but when the same request is in Hindi, Tamil, or
+Bengali, they often comply. India has 700M+ internet users who prefer their
+native language — they deserve equal safety protection.
 
-## Running locally (Mac / CPU dev)
-```bash
-source .venv/bin/activate
-bash scripts/download_assets.sh   # fasttext lid model (~124MB)
-pytest                            # adversarial probes pass
-bash scripts/smoke_test.sh        # full env round-trip via MockTarget
+**Nobody has built an automated tool to systematically find these failures.**
+Manual red-teaming with native speakers is expensive and doesn't scale.
+
+## Our Solution
+
+A three-component RLVR system built on the OpenEnv framework:
+
+| Component | Model | Role |
+|-----------|-------|------|
+| **Attacker** | Qwen2.5-3B-Instruct + LoRA | Generates adversarial prompts in 6 Indic languages |
+| **Target** | Llama-3.1-8B-Instruct (frozen) | The model being safety-audited |
+| **Environment** | OpenEnv FastAPI + reward composer | Scores attacks: harm detection, language ID, novelty |
+
+### Languages Covered
+Hindi, Tamil, Bengali, Marathi, Telugu, Kannada
+
+### Training Pipeline
+1. **SFT Warmup** — Fine-tune attacker on 402 translated adversarial seed prompts
+2. **GRPO Training** — Reinforcement learning against live target with shaped rewards
+3. **Evaluation** — Measure Attack Success Rate (ASR) before and after training
+
+## Architecture
+
+```
+Attacker (Qwen2.5-3B)  →  generates adversarial prompt in target language
+        ↓
+Target (Llama-3.1-8B)  →  responds to the prompt
+        ↓
+Reward Composer         →  scores: harm × non-refusal × novelty
+        ↓                  gates: language ID, gibberish detection
+GRPO Update             →  updates attacker policy to maximize reward
 ```
 
-## Running with real target
-Set `HF_TOKEN` in `.env` and either keep `MOCK_GPU=1` (Llama-Guard mocked, real
-target via HF Inference) or set `MOCK_GPU=0` on a GPU box for full reward.
+## Results
 
-## Documents
-- [`PLAN.md`](PLAN.md) — strategy
-- [`rules.md`](rules.md) — failure-mode bible
-- [`SKILL.md`](SKILL.md) — Claude Code agent directives
-- [`EXECUTION.md`](EXECUTION.md) — hour-by-hour build plan
-- [`DECISIONS.md`](DECISIONS.md) — pre-decided pivot answers
-- [`docs/ETHICS.md`](docs/ETHICS.md) — what we publish and what we don't
+**Baseline ASR (seed prompts):** 98.5% — simple translated prompts already bypass safety
 
-## Live env
-- Space: https://huggingface.co/spaces/Saiyam0211/polyglot-redteam
-- Endpoint: `https://saiyam0211-polyglot-redteam.hf.space`
-- Health: `curl https://saiyam0211-polyglot-redteam.hf.space/health`
+Post-GRPO results: training in progress (see `results/` directory)
+
+## Repository Structure
+
+```
+src/polyglot_redteam/       # OpenEnv FastAPI server
+  ├── env.py                # Episode management (reset/step)
+  ├── reward/               # Reward composer + components
+  │   ├── composer.py       # Multi-component reward shaping
+  │   ├── language_id.py    # FastText language identification
+  │   └── novelty.py        # Sentence-transformer novelty scoring
+  ├── target/               # Target model client (HF Inference API)
+  └── config.py             # Pydantic settings
+
+scripts/
+  ├── sft_warmup.py         # B8: SFT fine-tuning on seed prompts
+  ├── grpo_train.py         # B9: GRPO training loop
+  ├── baseline_eval.py      # Baseline ASR measurement
+  ├── post_grpo_eval.py     # Post-training ASR measurement
+  ├── plot_results.py       # Generate comparison charts
+  └── translate_seed_prompts.py  # Google Translate for seed data
+
+data/
+  ├── seed_prompts.jsonl    # 402 translated adversarial prompts (6 langs)
+  └── baseline_results.jsonl # Baseline eval results
+
+results/                    # Generated charts and summary
+configs/base.yaml           # Hyperparameters
+docs/ETHICS.md              # Ethics statement
+```
+
+## Quick Start
+
+```bash
+# Setup
+uv venv --python 3.11 && source .venv/bin/activate
+uv pip install -e .
+bash scripts/download_assets.sh   # fasttext model (~124MB)
+
+# Test reward function
+pytest
+
+# Run baseline eval
+python scripts/baseline_eval.py
+
+# Generate plots
+python scripts/plot_results.py
+```
+
+## Training (requires GPU)
+
+SFT and GRPO training run on HF Jobs (T4 GPU):
+
+```bash
+# SFT warmup (~3 min on T4)
+bash scripts/run_sft_job.sh
+
+# GRPO training (~1 hr on T4)
+bash scripts/run_grpo_job.sh
+```
+
+## Live Environment
+
+- **Space:** https://huggingface.co/spaces/Saiyam0211/polyglot-redteam
+- **Health:** `curl https://saiyam0211-polyglot-redteam.hf.space/health`
+- **API:** POST `/reset` → POST `/step` with `{episode_id, action}`
+
+## Trained Adapters
+
+- **SFT:** [Saiyam0211/polyglot-redteam-sft](https://huggingface.co/Saiyam0211/polyglot-redteam-sft)
+- **GRPO:** [Saiyam0211/polyglot-redteam-grpo](https://huggingface.co/Saiyam0211/polyglot-redteam-grpo) (training in progress)
 
 ## Status
-- [x] Repo scaffold + reward components (B2-B4)
-- [x] Adversarial probes pass — 30/30 (DP1)
-- [x] HF Space deployment (B5)
-- [ ] Baseline eval against Llama-3.1-8B (DP2)
-- [ ] SFT warmup on translated AdvBench (DP3)
-- [ ] GRPO main run (DP4)
-- [ ] Final eval + plots + submission (DP5)
+
+- [x] Repo scaffold + reward components
+- [x] Adversarial probes pass (30/30)
+- [x] HF Space deployment
+- [x] Seed prompts translated (402 × 6 languages)
+- [x] Baseline eval: 98.5% ASR
+- [x] SFT warmup complete (loss 3.07 → 0.36)
+- [x] GRPO training launched
+- [x] Eval + plotting scripts ready
+- [ ] Post-GRPO eval + final results
+- [ ] Submission
+
+## Ethics
+
+See [`docs/ETHICS.md`](docs/ETHICS.md). We do NOT publish:
+- Working attack prompts or templates
+- Target model responses to harmful queries
+- Any content that could enable real-world harm
+
+We DO publish: aggregated ASR metrics, reward distributions, methodology,
+and the OpenEnv environment for responsible safety research.
