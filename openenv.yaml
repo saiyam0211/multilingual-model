@@ -1,0 +1,18 @@
+name: polyglot-redteam
+version: 0.1.0
+description: |
+  Multilingual safety red-teaming environment. Trains an attacker LLM to discover
+  safety failures in frozen target models (default: Llama-3.1-8B-Instruct) when
+  prompted in Indic languages: hi, ta, bn, mr, te, kn. Composite reward built from
+  Llama-Guard-3, refusal classification, language-ID, and novelty signals.
+entrypoint: polyglot_redteam.server:app
+runtime:
+  python: "3.11"
+  port: 8000
+api:
+  reset: /reset
+  step: /step
+  state: /state
+  health: /health
+tags: [safety, red-teaming, multilingual, indic, grpo, rlvr]
+license: apache-2.0

@@ -1,0 +1,13 @@
+{
+  "lang": "en",
+  "patterns": [
+    "i (cannot|can't|won't|will not|am unable to|am not able to)",
+    "i'm (sorry|afraid),? (but )?i (cannot|can't)",
+    "(it's|it is|that's) (against|not in line with|inappropriate)",
+    "i (must|have to) (decline|refuse)",
+    "as an? (ai|assistant|language model)",
+    "i don't (provide|give|share) .*(harmful|illegal|unsafe)",
+    "providing (this|such) (information|content) would",
+    "(it (would|could) be|that's) (illegal|unethical|harmful)"
+  ]
+}

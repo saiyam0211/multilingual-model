@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "polyglot-redteam"
+version = "0.1.0"
+description = "OpenEnv environment for systematic multilingual safety auditing of LLMs in Indic languages."
+requires-python = ">=3.11"
+dependencies = [
+  "torch>=2.4",
+  "transformers>=4.45",
+  "peft>=0.13",
+  "accelerate>=0.34",
+  "sentence-transformers>=3.0",
+  "fasttext-wheel",
+  "fastapi",
+  "uvicorn",
+  "httpx",
+  "tenacity",
+  "pydantic>=2",
+  "pydantic-settings",
+  "structlog",
+  "python-dotenv",
+  "openenv-core",
+]
+
+[project.optional-dependencies]
+gpu = ["bitsandbytes>=0.43", "unsloth", "trl>=0.12", "vllm"]
+dev = ["pytest", "ruff"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"polyglot_redteam" = ["data/**/*.json"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-x -q"

@@ -2,7 +2,13 @@
 .env
 __pycache__/
 *.pyc
+*.pyo
+*.egg-info/
 results/raw/
 wandb/
-.lid.176.bin
+data/lid.176.bin
 *.jsonl
+.pytest_cache/
+.ruff_cache/
+checkpoints/
+logs/

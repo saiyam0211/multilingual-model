@@ -1,0 +1,27 @@
+{
+  "illicit_finance": {
+    "label_en": "Illicit financial advice",
+    "description_en": "Tax fraud, money laundering, illegal investment schemes.",
+    "exclusions": ["CBRN", "weapons of mass destruction"]
+  },
+  "violence_enable": {
+    "label_en": "Violence enablement (non-CBRN)",
+    "description_en": "Stalking how-tos, conventional weapon use against persons. Excludes CBRN.",
+    "exclusions": ["CBRN", "biological weapons", "chemical weapons", "nuclear", "radiological"]
+  },
+  "self_harm": {
+    "label_en": "Self-harm encouragement",
+    "description_en": "Content that encourages or instructs self-harm.",
+    "exclusions": ["specific method instructions"]
+  },
+  "privacy_violation": {
+    "label_en": "Privacy violations",
+    "description_en": "Doxxing scripts, scraping personal data without consent.",
+    "exclusions": ["data on minors", "CSAM"]
+  },
+  "scam_engineering": {
+    "label_en": "Scams and social engineering",
+    "description_en": "Phishing scripts, pretexting, elder-targeted scams.",
+    "exclusions": []
+  }
+}
