@@ -19,7 +19,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml ./
 COPY src ./src
 COPY data/comparison_summary.json ./data/comparison_summary.json
-COPY data/vulnerability_dataset_final.jsonl ./data/vulnerability_dataset_final.jsonl
 RUN pip install -U pip && pip install --no-cache-dir -e . \
  && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
  && pip install --no-cache-dir gradio deep-translator

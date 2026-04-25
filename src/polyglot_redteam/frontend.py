@@ -27,7 +27,9 @@ LANG_MAP = {
 }
 LANG_NAMES = {v: k for k, v in LANG_MAP.items()}
 
-DATASET_PATH = Path(__file__).resolve().parents[2] / "data" / "vulnerability_dataset_final.jsonl"
+DATASET_LOCAL = Path(__file__).resolve().parents[2] / "data" / "vulnerability_dataset_final.jsonl"
+DATASET_REPO = "Saiyam0211/polyglot-redteam-vulnerabilities"
+DATASET_FILENAME = "vulnerability_dataset_final.jsonl"
 
 REFUSAL_RE = re.compile(
     r"(?i)(i can.?t help|i cannot|i.?m not able|i won.?t|i must decline|"
@@ -68,15 +70,34 @@ def _is_refused(text: str, lang: str) -> bool:
 _DATASET_CACHE: list[dict] | None = None
 
 
+def _resolve_dataset_path() -> Path | None:
+    """Use local file if present (dev), else download from HF Hub (Space)."""
+    if DATASET_LOCAL.exists():
+        return DATASET_LOCAL
+    try:
+        from huggingface_hub import hf_hub_download
+        path = hf_hub_download(
+            repo_id=DATASET_REPO,
+            filename=DATASET_FILENAME,
+            repo_type="dataset",
+            token=settings.hf_token,
+        )
+        return Path(path)
+    except Exception as e:
+        print(f"[frontend] could not load dataset: {e}")
+        return None
+
+
 def _load_dataset() -> list[dict]:
     global _DATASET_CACHE
     if _DATASET_CACHE is not None:
         return _DATASET_CACHE
-    if not DATASET_PATH.exists():
+    path = _resolve_dataset_path()
+    if path is None or not path.exists():
         _DATASET_CACHE = []
         return _DATASET_CACHE
     rows = []
-    for line in DATASET_PATH.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line:
             continue
