@@ -18,7 +18,9 @@ reward:
 
 target:
   provider: hf-inference
-  model_id: meta-llama/Llama-3.1-8B-Instruct
+  # DEV target — free serverless. Swap to Llama-3.1-8B for final eval.
+  model_id: Qwen/Qwen2.5-7B-Instruct
+  final_eval_model_id: meta-llama/Llama-3.1-8B-Instruct
   max_tokens: 512
   temperature: 0.7
   timeout_s: 30

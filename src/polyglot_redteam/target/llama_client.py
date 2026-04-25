@@ -20,10 +20,20 @@ class TargetClient(Protocol):
 
 
 class HFInferenceTarget:
-    """HF Inference Provider client. Free for many community models."""
+    """HF Inference Providers client (router). Free for many community models.
 
-    def __init__(self, model_id: str, token: str | None) -> None:
-        self.url = f"https://api-inference.huggingface.co/models/{model_id}/v1/chat/completions"
+    Tries Providers router first (`router.huggingface.co/<provider>/...`); falls
+    back to legacy serverless on 404. The router supports more models including
+    Qwen, DeepSeek, Mistral via partner inference backends.
+    """
+
+    def __init__(self, model_id: str, token: str | None, provider: str = "hf-inference") -> None:
+        self.primary_url = (
+            f"https://router.huggingface.co/{provider}/models/{model_id}/v1/chat/completions"
+        )
+        self.fallback_url = (
+            f"https://api-inference.huggingface.co/models/{model_id}/v1/chat/completions"
+        )
         self.headers = {"Authorization": f"Bearer {token}"} if token else {}
         self.model_id = model_id
 
@@ -35,7 +45,9 @@ class HFInferenceTarget:
     )
     async def _post(self, payload: dict) -> dict:
         async with httpx.AsyncClient(timeout=settings.target_timeout_s) as client:
-            r = await client.post(self.url, headers=self.headers, json=payload)
+            r = await client.post(self.primary_url, headers=self.headers, json=payload)
+            if r.status_code == 404:
+                r = await client.post(self.fallback_url, headers=self.headers, json=payload)
             r.raise_for_status()
             return r.json()
 
@@ -81,5 +93,7 @@ def get_target_client() -> TargetClient:
         log.info("using_mock_target", reason="MOCK_GPU and no HF_TOKEN")
         return MockTarget()
     if settings.target_provider == "hf-inference":
-        return HFInferenceTarget(settings.target_model_id, settings.hf_token)
+        return HFInferenceTarget(
+            settings.target_model_id, settings.hf_token, provider="hf-inference"
+        )
     raise NotImplementedError(f"target provider {settings.target_provider!r} not wired")

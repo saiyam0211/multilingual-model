@@ -18,7 +18,6 @@ def _load_model():
             f"fasttext lid model not found at {path}. "
             f"Run scripts/download_assets.sh"
         )
-    # Suppress fasttext native warning about `load_model`
     fasttext.FastText.eprint = lambda *a, **kw: None
     return fasttext.load_model(path)
 
@@ -29,15 +28,20 @@ def detect_language(text: str) -> tuple[str, float]:
     if not cleaned:
         return ("und", 0.0)
     if os.environ.get("LID_OFFLINE_FALLBACK") == "1":
-        # CI / offline: cheap script heuristic
         return _script_fallback(cleaned), 0.95
     try:
         model = _load_model()
     except FileNotFoundError:
         return _script_fallback(cleaned), 0.5
-    labels, probs = model.predict(cleaned, k=1)
-    code = labels[0].replace("__label__", "")
-    return (code, float(probs[0]))
+    # NOTE: fasttext-wheel's model.predict() calls np.array(..., copy=False)
+    # which numpy>=2 rejects. Bypass by calling the underlying C++ binding,
+    # which returns List[Tuple[float, str]] sorted by score desc.
+    pairs = model.f.predict(cleaned, 1, 0.0, "")
+    if not pairs:
+        return _script_fallback(cleaned), 0.5
+    prob, label = pairs[0]
+    code = label.replace("__label__", "")
+    return (code, float(prob))
 
 
 def is_valid_language(text: str, expected: str, threshold: float | None = None) -> bool:
