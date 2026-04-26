@@ -136,8 +136,13 @@ def build_grpo_prompts(n: int = 12000, curriculum=None) -> list[dict]:
 
 def build_reward_stack():
     """Initialize the in-process v3 reward stack."""
-    # Set mock_gpu=False for real training
-    os.environ["MOCK_GPU"] = "0"
+    # MOCK_GPU=1 for judge models during GRPO training.
+    # Reason: can't load 3 judge models (Aya-8B + LlamaGuard-8B + Qwen-7B = ~23B params)
+    # alongside the training model on a single L4 (24GB VRAM).
+    # The KEY reward signal is the cross-lingual gap (real Indic/EN target probing via API),
+    # which is NOT affected by this. Judges use keyword heuristics that are sufficient
+    # for RL direction signal. Real GPU judges are used at eval time only.
+    os.environ["MOCK_GPU"] = "1"
 
     from polyglot_redteam.reward import (
         ClusterNoveltyScorer,

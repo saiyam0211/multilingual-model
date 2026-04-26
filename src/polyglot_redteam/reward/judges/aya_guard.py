@@ -44,18 +44,28 @@ class AyaGuard:
         if settings.mock_gpu:
             return None, None
         log.info("loading_aya_guard", model_id=self.model_id)
-        import torch
-        from transformers import AutoModelForCausalLM, AutoTokenizer
+        try:
+            import os
 
-        tok = AutoTokenizer.from_pretrained(self.model_id)
-        model = AutoModelForCausalLM.from_pretrained(
-            self.model_id,
-            torch_dtype=torch.bfloat16,
-            device_map="auto",
-            load_in_4bit=True,
-        )
-        model.eval()
-        return model, tok
+            import torch
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+
+            hf_token = os.environ.get("HF_TOKEN")
+            tok = AutoTokenizer.from_pretrained(self.model_id, token=hf_token)
+            model = AutoModelForCausalLM.from_pretrained(
+                self.model_id,
+                torch_dtype=torch.bfloat16,
+                device_map="auto",
+                load_in_4bit=True,
+                token=hf_token,
+            )
+            model.eval()
+            return model, tok
+        except (OSError, ValueError, RuntimeError) as e:
+            # Gated model (403), OOM, or other loading failure
+            log.warning("aya_guard_load_failed", error=str(e)[:200],
+                        fallback="mock_keyword_heuristic")
+            return None, None
 
     def score(self, prompt: str, response: str, lang: str = "hi") -> float:
         """Returns P(unsafe) in [0, 1]."""
