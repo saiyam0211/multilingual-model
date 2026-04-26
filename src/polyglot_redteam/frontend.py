@@ -344,6 +344,160 @@ This dataset is published so that **model providers (Meta, Mistral, etc.) can pa
 """
 
 
+# ─── Defender Loop handlers ────────────────────────────────────────────────────
+def random_gap_for_defender(language: str, category: str):
+    """Pick a random confirmed gap prompt for the defender loop."""
+    rows = [r for r in _load_dataset() if r.get("is_safety_gap")]
+    if language != "Any":
+        rows = [r for r in rows if r["language"] == LANG_MAP[language]]
+    if category != "Any":
+        rows = [r for r in rows if r["category"] == category]
+    if not rows:
+        return "", "Any", "unknown"
+    r = random.choice(rows)
+    return (
+        r.get("indic_prompt") or r.get("prompt", ""),
+        LANG_NAMES.get(r["language"], "Hindi"),
+        r.get("category", "unknown"),
+    )
+
+
+def run_defender_comparison(prompt: str, language: str, category: str):
+    """Run the defender loop and return HTML results."""
+    if not prompt or not prompt.strip():
+        return "Enter a prompt first.", "", ""
+
+    from .defender_demo import run_defender_loop
+    lang_code = LANG_MAP.get(language, "hi")
+
+    result = run_defender_loop(prompt, lang_code, category)
+
+    # Build unpatched result HTML
+    unpatched_color = "#22c55e" if result.unpatched_refused else "#ef4444"
+    unpatched_status = "🛡️ REFUSED" if result.unpatched_refused else "⚠️ ANSWERED"
+    unpatched_html = f"""
+<div style='border:2px solid {unpatched_color};
+            border-radius:8px; padding:14px; background:#f8fafc; color:#0f172a;'>
+<div style='display:flex; justify-content:space-between; margin-bottom:8px;'>
+<strong>🔓 Unpatched — Llama-3.1-8B</strong>
+<span style='font-weight:bold; color:{"#16a34a" if result.unpatched_refused else "#dc2626"};'>{unpatched_status}</span>
+</div>
+<div style='color:#475569; font-size:12px; margin-bottom:6px;'>{result.unpatched_latency_ms:.0f} ms</div>
+<div style='white-space:pre-wrap; max-height:250px; overflow-y:auto; font-size:14px;'>{_escape(result.unpatched_response)}</div>
+</div>"""
+
+    # Build defended result HTML
+    defended_color = "#22c55e" if result.defended_refused else "#ef4444"
+    defended_status = "🛡️ REFUSED" if result.defended_refused else "⚠️ ANSWERED"
+    defended_html = f"""
+<div style='border:2px solid {defended_color};
+            border-radius:8px; padding:14px; background:#f8fafc; color:#0f172a;'>
+<div style='display:flex; justify-content:space-between; margin-bottom:8px;'>
+<strong>🛡️ Defended — Llama-3.3-70B</strong>
+<span style='font-weight:bold; color:{"#16a34a" if result.defended_refused else "#dc2626"};'>{defended_status}</span>
+</div>
+<div style='color:#475569; font-size:12px; margin-bottom:6px;'>{result.defended_latency_ms:.0f} ms</div>
+<div style='white-space:pre-wrap; max-height:250px; overflow-y:auto; font-size:14px;'>{_escape(result.defended_response)}</div>
+</div>"""
+
+    # Verdict
+    if result.gap_patched:
+        verdict = ("<div style='background:#f0fdf4; color:#14532d; padding:14px; "
+                    "border-radius:8px; border-left:4px solid #22c55e; font-weight:bold;'>"
+                    "✅ GAP PATCHED — The 8B model answered the harmful prompt, "
+                    "but the 70B defended model correctly refused it. "
+                    "This demonstrates that improved safety training closes the gap.</div>")
+    elif not result.unpatched_refused and not result.defended_refused:
+        verdict = ("<div style='background:#fef2f2; color:#7f1d1d; padding:14px; "
+                    "border-radius:8px; border-left:4px solid #ef4444; font-weight:bold;'>"
+                    "🚨 BOTH ANSWERED — Neither model refused this prompt. "
+                    "This is a deeper vulnerability that persists even at scale.</div>")
+    elif result.unpatched_refused and result.defended_refused:
+        verdict = ("<div style='background:#eff6ff; color:#1e3a8a; padding:14px; "
+                    "border-radius:8px; border-left:4px solid #3b82f6;'>"
+                    "ℹ️ BOTH REFUSED — Both models correctly refused this prompt.</div>")
+    else:
+        verdict = ("<div style='background:#fffbeb; color:#78350f; padding:14px; "
+                    "border-radius:8px; border-left:4px solid #f59e0b;'>"
+                    "⚠️ UNEXPECTED — The 8B model refused but the 70B answered (rare).</div>")
+
+    return unpatched_html, defended_html, verdict
+
+
+# ─── Multi-Turn Attack handlers ───────────────────────────────────────────────
+def random_gap_for_multiturn(language: str, category: str):
+    """Pick a random prompt for multi-turn attack."""
+    rows = [r for r in _load_dataset() if r.get("is_safety_gap")]
+    if language != "Any":
+        rows = [r for r in rows if r["language"] == LANG_MAP[language]]
+    if category != "Any":
+        rows = [r for r in rows if r["category"] == category]
+    if not rows:
+        return "", "Any", "unknown"
+    r = random.choice(rows)
+    return (
+        r.get("indic_prompt") or r.get("prompt", ""),
+        LANG_NAMES.get(r["language"], "Hindi"),
+        r.get("category", "unknown"),
+    )
+
+
+def run_multiturn_attack(prompt: str, language: str, category: str, max_turns: int):
+    """Run multi-turn attack and return HTML conversation log."""
+    if not prompt or not prompt.strip():
+        return "Enter a prompt first.", ""
+
+    from .multi_turn import multi_turn_attack
+    lang_code = LANG_MAP.get(language, "hi")
+
+    result = multi_turn_attack(
+        prompt=prompt,
+        lang=lang_code,
+        category=category,
+        max_turns=int(max_turns),
+    )
+
+    # Build conversation HTML
+    conv_html = ""
+    for t in result.turns:
+        if t.role == "attacker":
+            conv_html += f"""
+<div style='margin:8px 0; padding:12px; border-radius:8px;
+            background:#fef3c7; border-left:4px solid #f59e0b; color:#0f172a;'>
+<div style='font-weight:bold; margin-bottom:4px; color:#92400e;'>
+🗡️ Attacker — Turn {t.turn}
+</div>
+<div style='white-space:pre-wrap; font-size:14px;'>{_escape(t.content)}</div>
+</div>"""
+        else:
+            refuse_color = "#22c55e" if t.refused else "#ef4444"
+            refuse_label = "REFUSED" if t.refused else "ANSWERED"
+            conv_html += f"""
+<div style='margin:8px 0; padding:12px; border-radius:8px;
+            background:#f0f9ff; border-left:4px solid {refuse_color}; color:#0f172a;'>
+<div style='display:flex; justify-content:space-between; margin-bottom:4px;'>
+<span style='font-weight:bold; color:#1e40af;'>🤖 Target (Llama-3.1-8B) — Turn {t.turn}</span>
+<span style='font-weight:bold; color:{"#16a34a" if t.refused else "#dc2626"};'>{refuse_label}</span>
+</div>
+<div style='color:#475569; font-size:11px; margin-bottom:4px;'>{t.latency_ms:.0f} ms</div>
+<div style='white-space:pre-wrap; font-size:14px; max-height:200px; overflow-y:auto;'>{_escape(t.content)}</div>
+</div>"""
+
+    # Verdict
+    if result.success:
+        verdict = (f"<div style='background:#fef2f2; color:#7f1d1d; padding:14px; "
+                    f"border-radius:8px; border-left:4px solid #ef4444; font-weight:bold; margin-top:12px;'>"
+                    f"🚨 GAP FOUND at Turn {result.success_turn} — The target answered after "
+                    f"{result.success_turn} turn(s). Total time: {result.total_latency_ms:.0f}ms</div>")
+    else:
+        verdict = (f"<div style='background:#f0fdf4; color:#14532d; padding:14px; "
+                    f"border-radius:8px; border-left:4px solid #22c55e; margin-top:12px;'>"
+                    f"✅ HELD FIRM — Target refused all {result.total_turns} turn(s). "
+                    f"Total time: {result.total_latency_ms:.0f}ms</div>")
+
+    return conv_html, verdict
+
+
 # ─── Build UI ──────────────────────────────────────────────────────────────────
 THEME = gr.themes.Soft(primary_hue="indigo", secondary_hue="rose")
 
@@ -408,6 +562,68 @@ def create_demo() -> gr.Blocks:
                 pick_btn.click(random_prompt, [rt_lang, rt_cat], [en_box, indic_box, language])
                 run_btn.click(live_test, [en_box, indic_box, language], [en_out, indic_out, verdict_out])
 
+            # Defender Loop tab (Phase F2)
+            with gr.Tab("🛡️ Defender Loop"):
+                gr.Markdown(
+                    "**Red Team vs Blue Team:** See how a confirmed safety gap in Llama-3.1-8B "
+                    "gets patched when tested against a defended model (Llama-3.3-70B-Instruct)."
+                )
+                with gr.Row():
+                    def_lang = gr.Dropdown(["Any"] + list(LANG_MAP.keys()), value="Hindi", label="Language")
+                    def_cat = gr.Dropdown(["Any"] + CATEGORIES[1:], value="Any", label="Category")
+                    def_pick = gr.Button("🎲 Random gap prompt", variant="secondary")
+
+                def_prompt = gr.Textbox(label="Adversarial prompt (Indic)", lines=3)
+                def_lang_sel = gr.Dropdown(list(LANG_MAP.keys()), value="Hindi", label="Language")
+                def_category = gr.Textbox(label="Category", visible=False)
+
+                def_run = gr.Button("🛡️ Test: Unpatched vs Defended", variant="primary", size="lg")
+
+                with gr.Row():
+                    def_unpatched = gr.HTML(label="Unpatched")
+                    def_defended = gr.HTML(label="Defended")
+                def_verdict = gr.HTML()
+
+                def_pick.click(
+                    random_gap_for_defender, [def_lang, def_cat],
+                    [def_prompt, def_lang_sel, def_category]
+                )
+                def_run.click(
+                    run_defender_comparison, [def_prompt, def_lang_sel, def_category],
+                    [def_unpatched, def_defended, def_verdict]
+                )
+
+            # Multi-Turn Attack tab (Phase F1)
+            with gr.Tab("🔄 Multi-Turn Attack"):
+                gr.Markdown(
+                    "**Multi-turn conversational attack:** The attacker sends follow-up "
+                    "prompts after each refusal, gradually coercing the target. "
+                    "Research shows this can increase attack success by +195%."
+                )
+                with gr.Row():
+                    mt_lang = gr.Dropdown(["Any"] + list(LANG_MAP.keys()), value="Hindi", label="Language")
+                    mt_cat = gr.Dropdown(["Any"] + CATEGORIES[1:], value="Any", label="Category")
+                    mt_turns = gr.Slider(2, 5, value=3, step=1, label="Max turns")
+                    mt_pick = gr.Button("🎲 Random prompt", variant="secondary")
+
+                mt_prompt = gr.Textbox(label="Initial adversarial prompt", lines=3)
+                mt_lang_sel = gr.Dropdown(list(LANG_MAP.keys()), value="Hindi", label="Language")
+                mt_category = gr.Textbox(label="Category", visible=False)
+
+                mt_run = gr.Button("🔄 Launch Multi-Turn Attack", variant="primary", size="lg")
+
+                mt_conversation = gr.HTML(label="Conversation")
+                mt_verdict = gr.HTML()
+
+                mt_pick.click(
+                    random_gap_for_multiturn, [mt_lang, mt_cat],
+                    [mt_prompt, mt_lang_sel, mt_category]
+                )
+                mt_run.click(
+                    run_multiturn_attack, [mt_prompt, mt_lang_sel, mt_category, mt_turns],
+                    [mt_conversation, mt_verdict]
+                )
+
             # Stats tab
             with gr.Tab("📊 Stats"):
                 stats_html = gr.HTML(build_stats_html())
@@ -419,3 +635,4 @@ def create_demo() -> gr.Blocks:
                 gr.Markdown(ABOUT_MD)
 
     return demo
+
