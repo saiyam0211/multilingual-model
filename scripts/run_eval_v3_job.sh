@@ -18,6 +18,18 @@ export EVAL_CHECKPOINT=${EVAL_CHECKPOINT:-Saiyam0211/polyglot-redteam-grpo-v3}
 export EVAL_DATA=${EVAL_DATA:-data/eval_prompts_v3.jsonl}
 export EVAL_NUM_GENERATIONS=${EVAL_NUM_GENERATIONS:-3}
 
+# Safety net: rebuild eval data if missing
+if [ ! -f "$EVAL_DATA" ]; then
+    echo "⚠ Eval data missing — rebuilding from build_sft_v3.py..."
+    python scripts/build_sft_v3.py
+fi
+
 python scripts/eval_v3.py
 
+# Auto-generate manual audit CSV from eval results
+echo ""
+echo "→ Generating manual audit template..."
+python scripts/manual_audit_template.py
+
 echo "✓ Eval v3 job complete"
+
