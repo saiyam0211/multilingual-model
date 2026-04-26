@@ -41,7 +41,7 @@ def _c(section, key, default=None):
     return _cfg.get(section, {}).get(key, default)
 
 # ---- Config values ---------------------------------------------------------
-SFT_ADAPTER = os.environ.get("SFT_ADAPTER", _c("model", "sft_adapter", "Saiyam0211/polyglot-redteam-sft-v2"))
+SFT_ADAPTER = os.environ.get("SFT_ADAPTER", _c("model", "sft_adapter", "Saiyam0211/polyglot-redteam-sft-v3"))
 BASE_MODEL = _c("model", "base", "Qwen/Qwen2.5-3B-Instruct")
 OUTPUT_DIR = os.environ.get("GRPO_OUTPUT_DIR", "checkpoints/grpo_v3")
 HUB_REPO = os.environ.get("GRPO_HUB_REPO", _c("model", "output_repo", "Saiyam0211/polyglot-redteam-grpo-v3"))
