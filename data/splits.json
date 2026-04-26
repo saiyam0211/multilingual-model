@@ -1,0 +1,14 @@
+{
+  "sft_v3": {
+    "path": "data/sft_v3.jsonl",
+    "count": 1758,
+    "seed": 42
+  },
+  "eval_v3": {
+    "path": "data/eval_prompts_v3.jsonl",
+    "count": 194,
+    "seed": 42,
+    "locked": true,
+    "note": "NEVER train on these prompts. Hash-locked for eval integrity."
+  }
+}

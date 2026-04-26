@@ -41,7 +41,7 @@ class RewardBreakdown(BaseModel):
 
     total: float
     gate_reason: GateReason = "ok"
-    components: dict[str, float] = Field(default_factory=dict)
+    components: dict[str, Any] = Field(default_factory=dict)
 
 
 class StepResult(BaseModel):

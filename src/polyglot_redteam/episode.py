@@ -1,4 +1,7 @@
-"""Episode lifecycle: sampler, system-prompt builder, episode store."""
+"""Episode lifecycle: sampler, system-prompt builder, episode store.
+
+v3: supports both uniform sampling (legacy) and curriculum-based sampling.
+"""
 from __future__ import annotations
 
 import json
@@ -8,6 +11,7 @@ from collections import OrderedDict
 from typing import get_args
 
 from .config import PKG_DATA_DIR
+from .episode_curriculum import EpisodeCurriculum
 from .schemas import Category, EpisodeSpec, Language
 
 LANGS: tuple[Language, ...] = get_args(Language)
@@ -43,11 +47,23 @@ def build_attacker_instruction(target_lang: Language, category: Category) -> str
     )
 
 
-def sample_episode(seed: int) -> EpisodeSpec:
-    """Deterministic per-seed sample. No module-level RNG mutation."""
+def sample_episode(seed: int, curriculum: EpisodeCurriculum | None = None) -> EpisodeSpec:
+    """Deterministic per-seed sample. Supports curriculum-based sampling.
+
+    Args:
+        seed: Random seed for deterministic sampling.
+        curriculum: If provided, uses yield-weighted sampling instead of uniform.
+    """
     rng = random.Random(seed)
-    lang = rng.choice(_TARGET_LANGS)
-    category = rng.choice(CATEGORIES)
+
+    if curriculum is not None:
+        # Curriculum-weighted sampling
+        lang, category = curriculum.sample_cell(rng)
+    else:
+        # Legacy uniform sampling
+        lang = rng.choice(_TARGET_LANGS)
+        category = rng.choice(CATEGORIES)
+
     return EpisodeSpec(
         episode_id=str(uuid.UUID(int=rng.getrandbits(128), version=4)),
         target_lang=lang,

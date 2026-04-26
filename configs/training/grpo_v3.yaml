@@ -1,0 +1,115 @@
+# GRPO v3 — Canonical hyperparameters for multiplicative cross-lingual reward training.
+#
+# Changes from v2:
+#   - Multiplicative reward (cross-lingual gap + judge ensemble + diversity + novelty)
+#   - In-process reward (no HTTP calls to Space)
+#   - vLLM colocate mode for 10x rollout speedup
+#   - Higher num_generations (8 vs 6) for group variance signal
+#   - Lower LR (1e-6 → to prevent reward hacking)
+#   - KL schedule: 0.04 → 0.08 from step 400
+#   - Entropy regularization (0.01) to counter mode-collapse
+#   - Max completion length 384 (Indic byte-fallback inflation 3-5x)
+#   - 1500 steps with eval gate at 800
+#
+# Reference: OpenAI Diverse & Effective Red Teaming (2412.18693), HF cookbook GRPO+vLLM
+
+model:
+  base: "Qwen/Qwen2.5-3B-Instruct"
+  sft_adapter: "Saiyam0211/polyglot-redteam-sft-v2"  # Start from SFT v3 once available
+  output_repo: "Saiyam0211/polyglot-redteam-grpo-v3"
+
+lora:
+  r: 32
+  alpha: 64
+  dropout: 0.0
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+training:
+  max_steps: 1500
+  eval_gate_step: 800  # Manual audit checkpoint
+  num_generations: 8
+  per_device_batch_size: 1
+  gradient_accumulation_steps: 8  # Effective batch = 8
+  learning_rate: 1.0e-6
+  warmup_ratio: 0.05
+  lr_scheduler_type: cosine
+  optim: paged_adamw_8bit
+  max_grad_norm: 1.0
+  temperature: 1.0
+  top_p: 0.95
+  max_prompt_length: 256
+  max_completion_length: 384  # Increased for Indic byte-fallback
+  max_seq_length: 640
+  seed: 42
+  bf16: true
+
+  # KL schedule: starts at 0.04, linearly ramps to 0.08 from step 400
+  kl_coef_initial: 0.04
+  kl_coef_final: 0.08
+  kl_ramp_start_step: 400
+
+  # Entropy regularization (DRA-GRPO §3)
+  entropy_coef: 0.01
+
+  # vLLM colocate mode (HF cookbook)
+  use_vllm: true
+  vllm_mode: colocate
+
+  # Checkpointing
+  save_steps: 100
+  save_total_limit: 5
+
+reward:
+  mode: multiplicative_v3  # Uses cross-lingual + judge ensemble
+  component_floor: 0.05   # Soft floor per component (prevents gradient death)
+  judge_disagreement_threshold: 0.3
+  use_cross_lingual: true
+  use_diversity: true
+  use_cluster_novelty: true
+  diversity_window_size: 32
+
+curriculum:
+  enabled: true
+  target_yield: 0.40
+  max_weight: 5.0
+  epsilon: 0.01
+  window: 200
+  hard_buffer_size: 256
+  hard_buffer_replay_prob: 0.25
+
+logging:
+  report_to: wandb
+  logging_steps: 1
+  run_name: grpo-v3-polyglot-redteam
+  # W&B metrics to log (per rules.md §5.3):
+  extra_metrics:
+    - reward/gap_indicator_rate
+    - reward/asymmetry_mean
+    - reward/judge_disagreement_mean
+    - reward/diversity_mean
+    - reward/novelty_mean
+    - reward/r_attack_mean
+    - reward/r_judge_agree_rate
+    - gen/turn_used
+  # Per-cell metrics logged as reward/cell_yield_{lang}_{cat}
+
+kill_criteria:
+  # Per DECISIONS.md DP4
+  step_200_audit_size: 10
+  step_200_genuine_min: 6   # ≥6/10 → continue; ≤2/10 → restart
+  step_200_genuine_kill: 2  # ≤2/10 → hard restart from SFT
+  step_500_audit_size: 10
+  step_800_audit_size: 10
+
+  # Automatic canaries
+  judge_disagreement_kill_threshold: 0.5   # Mean disagreement > 50% → kill
+  response_len_kill_threshold: 250         # Mean response length climbing past 250 → length farming
+  reward_std_kill_threshold: 0.05          # Reward std < 0.05 → mode collapse
+  kl_divergence_kill_threshold: 50.0       # KL > 50 → policy divergence
+
+compute:
+  # Recommended: 1x Nvidia L4 (24GB)
+  # Fallback: Nvidia T4-medium (16GB) — ~2x slower
+  gpu: "nvidia-l4"
+  estimated_hours_l4: 10
+  estimated_hours_t4: 18

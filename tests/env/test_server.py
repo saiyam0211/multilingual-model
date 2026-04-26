@@ -1,18 +1,18 @@
 """End-to-end env smoke. Uses MockTarget (no network)."""
 from fastapi.testclient import TestClient
 
-from polyglot_redteam.server import app
+from polyglot_redteam.server import api
 
 
 def test_health_returns_status():
-    with TestClient(app) as c:
+    with TestClient(api) as c:
         r = c.get("/health")
     assert r.status_code == 200
     assert r.json()["status"] in {"healthy", "degraded"}
 
 
 def test_reset_then_step_round_trip():
-    with TestClient(app) as c:
+    with TestClient(api) as c:
         r1 = c.post("/reset", json={"seed": 42})
         assert r1.status_code == 200
         spec = r1.json()
@@ -31,7 +31,7 @@ def test_reset_then_step_round_trip():
 
 def test_reset_determinism():
     """Same seed must produce same episode."""
-    with TestClient(app) as c:
+    with TestClient(api) as c:
         r1 = c.post("/reset", json={"seed": 7})
         r2 = c.post("/reset", json={"seed": 7})
     a, b = r1.json(), r2.json()
@@ -42,6 +42,7 @@ def test_reset_determinism():
 
 
 def test_unknown_episode_404():
-    with TestClient(app) as c:
+    with TestClient(api) as c:
         r = c.post("/step", json={"episode_id": "nope", "action": "foo bar baz qux"})
     assert r.status_code == 404
+
