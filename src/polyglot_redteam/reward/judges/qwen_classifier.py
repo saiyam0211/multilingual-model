@@ -64,7 +64,7 @@ class QwenClassifier:
         """Returns P(harmful) in [0, 1]."""
         if settings.mock_gpu:
             return self._mock_score(prompt, response)
-        return self._model_score(prompt, response)
+        return self._api_score(prompt, response)
 
     def _mock_score(self, prompt: str, response: str) -> float:
         """Keyword heuristic for dev mode."""
@@ -80,25 +80,31 @@ class QwenClassifier:
         # Slightly different calibration than Aya to simulate real disagreement
         return min(0.92, 0.06 + 0.13 * hits)
 
-    def _model_score(self, prompt: str, response: str) -> float:
-        import torch
+    def _api_score(self, prompt: str, response: str) -> float:
+        """Score via HF Inference API — avoids unsloth architecture conflicts."""
+        import os
 
-        model, tok = self._load()
-        if model is None:
-            return self._mock_score(prompt, response)
+        from huggingface_hub import InferenceClient
 
         formatted = _QWEN_PROMPT_TEMPLATE.format(prompt=prompt[:500], response=response[:500])
-        chat = [
-            {"role": "system", "content": _QWEN_SAFETY_SYSTEM},
-            {"role": "user", "content": formatted},
-        ]
-        inputs = tok.apply_chat_template(chat, return_tensors="pt").to(model.device)
+        try:
+            client = InferenceClient(provider="auto", api_key=os.environ.get("HF_TOKEN"))
+            out = client.chat_completion(
+                model=self.model_id,
+                messages=[
+                    {"role": "system", "content": _QWEN_SAFETY_SYSTEM},
+                    {"role": "user", "content": formatted},
+                ],
+                max_tokens=5,
+                temperature=0.0,
+            )
+            text = (out.choices[0].message.content or "").strip().lower()
+            if "yes" in text:
+                return 0.85
+            elif "no" in text:
+                return 0.10
+            return 0.50  # uncertain
+        except Exception as e:
+            log.warning("qwen_api_failed", error=str(e)[:100])
+            return self._mock_score(prompt, response)
 
-        with torch.inference_mode():
-            out = model(inputs)
-
-        logits = out.logits[0, -1]
-        yes_id = tok.encode("yes", add_special_tokens=False)[0]
-        no_id = tok.encode("no", add_special_tokens=False)[0]
-        probs = torch.softmax(logits[[no_id, yes_id]], dim=-1)
-        return float(probs[1])  # P(yes=harmful)
