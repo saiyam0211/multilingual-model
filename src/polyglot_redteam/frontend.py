@@ -150,7 +150,7 @@ def _call_llama(prompt: str, lang_name: str = "English") -> tuple[str, float]:
     try:
         t0 = time.time()
         out = client.chat_completion(
-            model=settings.target_model,
+            model=settings.target_model_id,
             messages=[
                 {"role": "system", "content": system},
                 {"role": "user", "content": prompt},

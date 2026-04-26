@@ -522,7 +522,7 @@ def main():
         max_grad_norm=MAX_GRAD_NORM,
         temperature=TEMPERATURE,
         seed=42,
-        report_to="wandb" if os.environ.get("WANDB_API_KEY") else "none",
+        report_to="wandb" if (os.environ.get("WANDB_API_KEY") and os.environ.get("WANDB_MODE") != "disabled") else "none",
         run_name=RUN_NAME,
     )
 
