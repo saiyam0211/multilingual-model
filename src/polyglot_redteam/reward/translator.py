@@ -106,17 +106,21 @@ class Translator:
     def _load_indictrans(self):
         """Lazy load IndicTrans2 model. Only on GPU."""
         try:
+            import os
+
             import torch
             from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
             model_name = settings.translator_model_id
+            hf_token = os.environ.get("HF_TOKEN")
             log.info("loading_indictrans2", model=model_name)
-            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, token=hf_token)
             model = AutoModelForSeq2SeqLM.from_pretrained(
                 model_name,
                 torch_dtype=torch.bfloat16,
                 device_map="auto",
                 trust_remote_code=True,
+                token=hf_token,
             )
             model.eval()
             return model, tokenizer
