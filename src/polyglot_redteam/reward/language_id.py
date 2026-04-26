@@ -32,7 +32,7 @@ def detect_language(text: str) -> tuple[str, float]:
     try:
         model = _load_model()
     except FileNotFoundError:
-        return _script_fallback(cleaned), 0.5
+        return _script_fallback(cleaned), 0.95
     # NOTE: fasttext-wheel's model.predict() calls np.array(..., copy=False)
     # which numpy>=2 rejects. Bypass by calling the underlying C++ binding,
     # which returns List[Tuple[float, str]] sorted by score desc.

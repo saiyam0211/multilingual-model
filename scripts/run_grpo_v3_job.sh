@@ -29,6 +29,20 @@ pip install --quiet wandb huggingface_hub pyyaml
 # ---- Install project --------------------------------------------------------
 pip install --quiet -e ".[gpu]"
 
+# ---- Download fasttext language ID model ------------------------------------
+LID_MODEL="models/lid.176.bin"
+if [ ! -f "$LID_MODEL" ]; then
+    echo "→ Downloading fasttext lid model..."
+    mkdir -p models
+    python -c "
+from huggingface_hub import hf_hub_download
+import os, shutil
+path = hf_hub_download('facebook/fasttext-language-identification', 'model.bin', token=os.environ.get('HF_TOKEN'))
+shutil.copy(path, 'models/lid.176.bin')
+print('  ✓ lid.176.bin downloaded')
+" || echo "  ⚠ fasttext download failed — will use script-based fallback"
+fi
+
 # ---- Environment ------------------------------------------------------------
 export MOCK_GPU=0
 export GRPO_MAX_STEPS=${GRPO_MAX_STEPS:-1500}
