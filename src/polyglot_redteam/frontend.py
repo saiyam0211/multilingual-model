@@ -513,9 +513,8 @@ SOURCES = ["All", "seed", "augmented", "combo_augmented"]
 def create_demo() -> gr.Blocks:
     with gr.Blocks(title="Polyglot Red-Teamer") as demo:
         gr.HTML("""
-<div style='background:linear-gradient(135deg,#312e81,#9d174d);
-           color:#fff; padding:24px; border-radius:12px; margin-bottom:18px;'>
-<h1 style='margin:0; font-size:28px;'>🔍 Polyglot Red-Teamer</h1>
+<div style='padding:24px; border-radius:12px; margin-bottom:18px;'>
+<h1 style='margin:0; font-size:28px;'>Polyglot Red-Teamer</h1>
 <p style='margin:8px 0 0 0; opacity:0.9; font-size:15px;'>
 1094 confirmed safety-gap prompts where Llama-3.1-8B refuses in English but answers in Indian languages.
 </p>
