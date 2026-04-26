@@ -12,6 +12,7 @@ Disagreement: |primary - secondary| > 0.3 → flagged for reward zeroing (DP4).
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -44,12 +45,14 @@ def _load_llama_guard():
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    tok = AutoTokenizer.from_pretrained(settings.primary_judge_model)
+    hf_token = os.environ.get("HF_TOKEN")
+    tok = AutoTokenizer.from_pretrained(settings.primary_judge_model, token=hf_token)
     model = AutoModelForCausalLM.from_pretrained(
         settings.primary_judge_model,
         torch_dtype=torch.bfloat16,
         device_map="auto",
         load_in_4bit=True,
+        token=hf_token,
     )
     model.eval()
     return model, tok

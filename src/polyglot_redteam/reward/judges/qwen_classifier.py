@@ -43,15 +43,19 @@ class QwenClassifier:
         if settings.mock_gpu:
             return None, None
         log.info("loading_qwen_classifier", model_id=self.model_id)
+        import os
+
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
-        tok = AutoTokenizer.from_pretrained(self.model_id)
+        hf_token = os.environ.get("HF_TOKEN")
+        tok = AutoTokenizer.from_pretrained(self.model_id, token=hf_token)
         model = AutoModelForCausalLM.from_pretrained(
             self.model_id,
             torch_dtype=torch.bfloat16,
             device_map="auto",
             load_in_4bit=True,
+            token=hf_token,
         )
         model.eval()
         return model, tok
