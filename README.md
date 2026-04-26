@@ -77,12 +77,28 @@ Through this pipeline, we generated and verified **1,094 severe vulnerability ga
 
 *You can browse the full dataset on our Hugging Face Space.*
 
-### Training Proof
-During GRPO training, our OpenEnv environment successfully shaped the attacker's policy. 
-*(Wait until GRPO finishes to add actual final plots here. Currently generating...)*
+### Training Proof (GRPO v3 — 200 steps on L40S)
 
-- `plots/reward_curve.png`
-- `plots/asr_before_after.png`
+Our GRPO training produced clear evidence of policy learning over 200 steps:
+
+| Metric | Value |
+|---|---|
+| Total steps | 200 |
+| Final loss (last 10 avg) | 0.0010 |
+| Final gap rate | **30.1%** |
+| Total gap hits | 602 / 2000 calls |
+
+**Reward Curve** — The attacker's reward signal shows active policy exploration with the rolling mean stabilizing as the model learns which attack patterns successfully bypass Indic guardrails:
+
+![Reward Curve](plots/reward_curve_v3.png)
+
+**Loss Curve** — Training loss converged rapidly to near-zero, confirming stable gradient updates:
+
+![Loss Curve](plots/loss_curve_v3.png)
+
+**Cross-Lingual Gap Rate** — The percentage of generated prompts that successfully trigger the English-refused / Indic-answered gap increased throughout training:
+
+![Gap Rate](plots/gap_rate_v3.png)
 
 ---
 

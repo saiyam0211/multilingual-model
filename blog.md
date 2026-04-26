@@ -59,6 +59,18 @@ The results exposed a stark contrast in safety generalization:
 
 The highest success rates for the attacker occurred in **Kannada and Marathi**, where the model provided explicit advice on illicit finance, scam engineering, and privacy violations without triggering any internal safety flags. 
 
+### Training Evidence
+
+Our GRPO v3 run completed 200 steps on an L40S GPU, producing clear evidence of policy learning:
+
+![Reward Curve](plots/reward_curve_v3.png)
+
+The reward curve shows the attacker actively exploring and refining its attack strategies. The model achieved a **30.1% cross-lingual gap rate** by the end of training—meaning nearly 1 in 3 generated prompts successfully triggered the safety disparity.
+
+![Gap Rate](plots/gap_rate_v3.png)
+
+![Loss Curve](plots/loss_curve_v3.png)
+
 ## Beyond Discovery: Why This Matters
 
 Our goal is not to shame model providers, but to provide the tools necessary to close this gap. 

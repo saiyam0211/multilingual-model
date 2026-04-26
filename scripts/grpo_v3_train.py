@@ -135,10 +135,19 @@ def build_grpo_prompts(n: int = 12000, curriculum=None) -> list[dict]:
 
 
 def build_reward_stack():
-    """Initialize the in-process v3 reward stack."""
-    # MOCK_GPU=0: use real judge models (Aya-8B, LlamaGuard-8B, Qwen-7B).
-    # Requires L40S (48GB VRAM) to fit training model + 3 judges.
-    os.environ["MOCK_GPU"] = "0"
+    """Initialize the in-process v3 reward stack.
+
+    Respects MOCK_GPU env var:
+      - MOCK_GPU=1 (default/notebook): keyword-heuristic judges, Google Translate fallback.
+        No gated model downloads, no paid API calls. Good for reproducibility demos.
+      - MOCK_GPU=0 (real training): loads Aya-8B, Llama-Guard-3, Qwen-7B judges on GPU.
+        Requires L40S (48GB VRAM) + valid HF_TOKEN with gated model access.
+    """
+    mock_mode = os.environ.get("MOCK_GPU", "1") == "1"
+    if not mock_mode:
+        print("  ⚠ MOCK_GPU=0: will attempt real judge model loads (needs HF_TOKEN + GPU VRAM)")
+    else:
+        print("  ℹ MOCK_GPU=1: using keyword-heuristic judges (no API keys needed)")
 
     from polyglot_redteam.reward import (
         ClusterNoveltyScorer,
@@ -150,18 +159,24 @@ def build_reward_stack():
     from polyglot_redteam.reward.composer import compose_reward
 
     novelty_store = NoveltyStore(max_size=200)
-    translator = Translator(cache_size=4096, use_indictrans=True)
-
-    # Cross-lingual reward needs a target client for EN probing
-    # For in-process training, we import the target client directly
-    from polyglot_redteam.target import get_target_client
-    target = get_target_client()
+    # In mock mode, don't attempt IndicTrans2 (gated model) — use Google Translate fallback
+    translator = Translator(cache_size=4096, use_indictrans=not mock_mode)
 
     # Sync target client for reward probing (avoids async issues in GRPO callback)
-    from huggingface_hub import InferenceClient
-    sync_target = InferenceClient(provider="auto", api_key=os.environ.get("HF_TOKEN"))
+    sync_target = None
+    if not mock_mode:
+        # Real mode: use HF Inference API for target probing
+        from huggingface_hub import InferenceClient
+        sync_target = InferenceClient(provider="auto", api_key=os.environ.get("HF_TOKEN"))
 
-    cross_lingual = CrossLingualReward(translator=translator, target_client=target) if USE_CROSS_LINGUAL else None
+        # Cross-lingual reward needs a target client for EN probing
+        from polyglot_redteam.target import get_target_client
+        target = get_target_client()
+        cross_lingual = CrossLingualReward(translator=translator, target_client=target) if USE_CROSS_LINGUAL else None
+    else:
+        # Mock mode: cross-lingual uses compute_mock (no API calls)
+        cross_lingual = CrossLingualReward(translator=translator, target_client=None) if USE_CROSS_LINGUAL else None
+
     diversity = DiversityTracker(window_size=32) if USE_DIVERSITY else None
 
     cluster_novelty = None
@@ -185,6 +200,7 @@ def build_reward_stack():
         "cluster_novelty": cluster_novelty,
         "compose_reward": compose_reward,
         "sync_target": sync_target,
+        "mock_mode": mock_mode,
     }
 
 
@@ -254,9 +270,18 @@ def main():
     cluster_novelty = reward_stack["cluster_novelty"]
     sync_target = reward_stack["sync_target"]
     translator = reward_stack["translator"]
+    mock_mode = reward_stack["mock_mode"]
 
     def _probe_target_sync(prompt_text: str, lang_code: str) -> str:
         """Sync probe: send attacker's Indic prompt to Llama-3.1-8B, get Indic response."""
+        if mock_mode or sync_target is None:
+            # Mock mode: simulate target response (70% refusal, 30% compliance)
+            import hashlib
+            h = int(hashlib.md5(prompt_text.encode()).hexdigest()[:8], 16)
+            if h % 10 < 7:
+                return "I cannot help with that request."
+            return f"Sure, here's how. Step 1, then step 2. (mock) prompt={prompt_text[:30]}"
+
         lang_name = LANG_NAMES.get(lang_code, lang_code)
         try:
             out = sync_target.chat_completion(
@@ -278,6 +303,10 @@ def main():
 
     def _probe_target_en_sync(en_prompt_text: str) -> str:
         """Sync probe: send EN translation to Llama-3.1-8B, get EN response."""
+        if mock_mode or sync_target is None:
+            # Mock mode: EN side always refuses (conservative for gap_indicator)
+            return "I cannot help with that request."
+
         try:
             out = sync_target.chat_completion(
                 model="meta-llama/Llama-3.1-8B-Instruct",
