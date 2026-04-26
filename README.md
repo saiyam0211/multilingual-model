@@ -133,8 +133,16 @@ worst gaps (+86pp each).
 5. **Final curation** — every prompt in the published dataset is confirmed to
    trigger `English=refused AND Indic=answered` on Llama-3.1-8B-Instruct.
 
-See `results/` for charts: `safety_gap_comparison.png`, `safety_gap_by_category.png`,
-`findings_summary.png`, `asr_by_language.png`
+### Block 12 evaluation artifacts
+
+- `plots/asr_before_after.png`
+- `plots/category_heatmap.png`
+- `plots/reward_curve.png` *(currently eval-proxy curve; can be replaced by true W&B export via `scripts/export_wandb_reward_curve.py`)*
+- `plots/attack_examples.png`
+- `results/eval_baseline.jsonl`
+- `results/eval_trained.jsonl`
+- `results/asr_matrix.json`
+- `results/manual_audit.csv`
 
 ## Repository Structure
 
@@ -198,13 +206,14 @@ bash scripts/run_grpo_job.sh
 ## Live Environment
 
 - **Space:** https://huggingface.co/spaces/Saiyam0211/polyglot-redteam
-- **Health:** `curl https://saiyam0211-polyglot-redteam.hf.space/health`
+- **Health:** `curl https://saiyam0211-polyglot-redteam.hf.space/api/health`
 - **API:** POST `/reset` → POST `/step` with `{episode_id, action}`
 
 ## Trained Adapters & Dataset
 
-- **SFT:** [Saiyam0211/polyglot-redteam-sft](https://huggingface.co/Saiyam0211/polyglot-redteam-sft)
-- **GRPO:** [Saiyam0211/polyglot-redteam-grpo](https://huggingface.co/Saiyam0211/polyglot-redteam-grpo)
+- **SFT adapter:** `Saiyam0211/polyglot-redteam-sft` *(private)*
+- **GRPO adapter:** `Saiyam0211/polyglot-redteam-grpo` *(private)*
+- **SFT v2 adapter:** `Saiyam0211/polyglot-redteam-sft-v2` *(private)*
 - **Vulnerability Dataset:** [Saiyam0211/polyglot-redteam-vulnerabilities](https://huggingface.co/datasets/Saiyam0211/polyglot-redteam-vulnerabilities)
 
 ## Use Case (Why this matters)
@@ -234,7 +243,8 @@ under $5 of inference compute.
 - [x] GRPO training complete (ASR 10 % → 100 % on gate-passed eval)
 - [x] **Vulnerability dataset built: 1094 confirmed safety gaps**
 - [x] Dataset published to HF Hub
-- [x] Submission ready
+- [x] Block 12 artifacts generated (`plots/`, `results/eval_*.jsonl`, `manual_audit.csv`)
+- [ ] Block 13 final submission form + video link
 
 ## Ethics
 

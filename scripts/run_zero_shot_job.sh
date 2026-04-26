@@ -3,8 +3,12 @@
 set -euo pipefail
 
 FLAVOR="${1:-t4-small}"
+ATTACKER_ADAPTER="${ATTACKER_ADAPTER:-Saiyam0211/polyglot-redteam-grpo-v2}"
+NUM_PER_CELL="${NUM_PER_CELL:-6}"
 
 echo "→ launching zero-shot generation job on $FLAVOR"
+echo "→ adapter: $ATTACKER_ADAPTER"
+echo "→ num_per_cell: $NUM_PER_CELL"
 
 cd "$(dirname "$0")/.."
 
@@ -28,9 +32,9 @@ job = api.run_job(
     secrets={'HF_TOKEN': token},
     env={
         'HF_HOME': '/tmp/hf_cache',
-        # 6 langs × 4 cats × 6 = 144 rows; ~4h wall time with API + gen
-        'NUM_PER_CELL': '6',
-        'ATTACKER_ADAPTER': 'Saiyam0211/polyglot-redteam-grpo',
+        # 6 langs × 4 cats × N
+        'NUM_PER_CELL': '${NUM_PER_CELL}',
+        'ATTACKER_ADAPTER': '${ATTACKER_ADAPTER}',
     },
     # Default HF Job limit is short; full run needs several hours
     timeout='4h',
