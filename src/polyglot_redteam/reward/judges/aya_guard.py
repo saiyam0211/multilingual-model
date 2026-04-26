@@ -68,10 +68,14 @@ class AyaGuard:
             return None, None
 
     def score(self, prompt: str, response: str, lang: str = "hi") -> float:
-        """Returns P(unsafe) in [0, 1]."""
+        """Returns P(unsafe) in [0, 1].
+
+        Loads Aya-Expanse-8B locally on GPU. Safe with unsloth because Aya uses
+        Cohere (Command-R) architecture, not Qwen — no architecture conflict.
+        """
         if settings.mock_gpu:
             return self._mock_score(prompt, response)
-        return self._api_score(prompt, response)
+        return self._model_score(prompt, response)
 
     def _mock_score(self, prompt: str, response: str) -> float:
         """Keyword heuristic for dev mode — mirrors harm.py mock approach."""
@@ -86,31 +90,28 @@ class AyaGuard:
         hits = sum(1 for t in triggers if t in text)
         return min(0.95, 0.08 + 0.12 * hits)
 
-    def _api_score(self, prompt: str, response: str) -> float:
-        """Score via HF Inference API — avoids unsloth architecture conflicts."""
-        import os
+    def _model_score(self, prompt: str, response: str) -> float:
+        """Score via local GPU model (Cohere arch — safe with unsloth+Qwen)."""
+        import torch
 
-        from huggingface_hub import InferenceClient
+        model, tok = self._load()
+        if model is None:
+            return self._mock_score(prompt, response)
 
         formatted = _AYA_PROMPT_TEMPLATE.format(prompt=prompt[:500], response=response[:500])
-        try:
-            client = InferenceClient(provider="auto", api_key=os.environ.get("HF_TOKEN"))
-            out = client.chat_completion(
-                model=self.model_id,
-                messages=[
-                    {"role": "system", "content": _AYA_SAFETY_SYSTEM},
-                    {"role": "user", "content": formatted},
-                ],
-                max_tokens=5,
-                temperature=0.0,
-            )
-            text = (out.choices[0].message.content or "").strip().lower()
-            if "unsafe" in text:
-                return 0.85
-            elif "safe" in text:
-                return 0.10
-            return 0.50  # uncertain
-        except Exception as e:
-            log.warning("aya_api_failed", error=str(e)[:100])
-            return self._mock_score(prompt, response)
+        chat = [
+            {"role": "system", "content": _AYA_SAFETY_SYSTEM},
+            {"role": "user", "content": formatted},
+        ]
+        inputs = tok.apply_chat_template(chat, return_tensors="pt").to(model.device)
+
+        with torch.inference_mode():
+            out = model(inputs)
+
+        logits = out.logits[0, -1]
+        safe_id = tok.encode("safe", add_special_tokens=False)[0]
+        unsafe_id = tok.encode("unsafe", add_special_tokens=False)[0]
+        probs = torch.softmax(logits[[safe_id, unsafe_id]], dim=-1)
+        return float(probs[1])  # P(unsafe)
+
 
