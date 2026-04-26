@@ -43,27 +43,22 @@ class QwenClassifier:
         if settings.mock_gpu:
             return None, None
         log.info("loading_qwen_classifier", model_id=self.model_id)
-        try:
-            import os
+        import os
 
-            import torch
-            from transformers import AutoModelForCausalLM, AutoTokenizer
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
 
-            hf_token = os.environ.get("HF_TOKEN")
-            tok = AutoTokenizer.from_pretrained(self.model_id, token=hf_token)
-            model = AutoModelForCausalLM.from_pretrained(
-                self.model_id,
-                torch_dtype=torch.bfloat16,
-                device_map="auto",
-                load_in_4bit=True,
-                token=hf_token,
-            )
-            model.eval()
-            return model, tok
-        except (OSError, ValueError, RuntimeError) as e:
-            log.warning("qwen_classifier_load_failed", error=str(e)[:200],
-                        fallback="mock_keyword_heuristic")
-            return None, None
+        hf_token = os.environ.get("HF_TOKEN")
+        tok = AutoTokenizer.from_pretrained(self.model_id, token=hf_token)
+        model = AutoModelForCausalLM.from_pretrained(
+            self.model_id,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+            load_in_4bit=True,
+            token=hf_token,
+        )
+        model.eval()
+        return model, tok
 
     def score(self, prompt: str, response: str, lang: str = "en") -> float:
         """Returns P(harmful) in [0, 1]."""

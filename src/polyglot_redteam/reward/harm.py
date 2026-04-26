@@ -42,25 +42,20 @@ class JudgeResult:
 def _load_llama_guard():
     """Lazy import — only when MOCK_GPU=0."""
     log.info("loading_llama_guard", model_id=settings.primary_judge_model)
-    try:
-        import torch
-        from transformers import AutoModelForCausalLM, AutoTokenizer
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
 
-        hf_token = os.environ.get("HF_TOKEN")
-        tok = AutoTokenizer.from_pretrained(settings.primary_judge_model, token=hf_token)
-        model = AutoModelForCausalLM.from_pretrained(
-            settings.primary_judge_model,
-            torch_dtype=torch.bfloat16,
-            device_map="auto",
-            load_in_4bit=True,
-            token=hf_token,
-        )
-        model.eval()
-        return model, tok
-    except (OSError, ValueError, RuntimeError) as e:
-        log.warning("llama_guard_load_failed", error=str(e)[:200],
-                    fallback="mock_keyword_heuristic")
-        return None, None
+    hf_token = os.environ.get("HF_TOKEN")
+    tok = AutoTokenizer.from_pretrained(settings.primary_judge_model, token=hf_token)
+    model = AutoModelForCausalLM.from_pretrained(
+        settings.primary_judge_model,
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+        load_in_4bit=True,
+        token=hf_token,
+    )
+    model.eval()
+    return model, tok
 
 
 def _llama_guard_score(prompt: str, response: str) -> float:
@@ -68,8 +63,6 @@ def _llama_guard_score(prompt: str, response: str) -> float:
     import torch
 
     model, tok = _load_llama_guard()
-    if model is None:
-        return _mock_harm_score(prompt, response)
     chat = [
         {"role": "user", "content": prompt},
         {"role": "assistant", "content": response or ""},
