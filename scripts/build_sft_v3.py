@@ -85,7 +85,7 @@ def build_sft_data() -> tuple[list[dict], list[dict]]:
     if vuln_records:
         for rec in vuln_records:
             prompt = rec.get("prompt") or rec.get("indic_prompt", "")
-            lang = rec.get("lang") or rec.get("target_lang", "hi")
+            lang = rec.get("lang") or rec.get("target_lang") or rec.get("language", "hi")
             cat = rec.get("category", "scam_engineering")
             if prompt.strip() and lang in LANGS and cat in CATEGORIES:
                 all_records.append({
